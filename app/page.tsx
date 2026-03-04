@@ -8,14 +8,14 @@ import { Sidebar } from "@/components/sidebar"
 async function getWordPressData() {
   const query = `
     query GetHomepageData {
-      businessPosts: posts(where: {categoryName: "AI for Business"}, first: 4) {
+      businessPosts: posts(where: {categoryName: "AI for Business"}, first: 5) {
         nodes { 
           title, slug, excerpt,
           featuredImage { node { sourceUrl } },
           categories { nodes { name, slug } }
         }
       }
-      toolsPosts: posts(where: {categoryName: "AI Tools Review & Comparison"}, first: 3) {
+      toolsPosts: posts(where: {categoryName: "AI Tools Review & Comparison"}, first: 4) {
         nodes { 
           title, slug, excerpt,
           featuredImage { node { sourceUrl } },
@@ -50,6 +50,7 @@ async function getWordPressData() {
     const json = await res.json();
     return json.data || {};
   } catch (error) {
+    console.error("WordPress Fetch Error:", error);
     return {};
   }
 }
@@ -57,16 +58,16 @@ async function getWordPressData() {
 export default async function HomePage() {
   const data = await getWordPressData();
 
-  // FUNGSI TRANSFORMASI DATA YANG LEBIH AGRESIF
+  // Helper untuk membersihkan data dari WordPress agar cocok dengan UI v0
   const mapPosts = (posts: any) => {
     return (posts || []).map((post: any) => ({
       id: post?.slug || Math.random().toString(),
       title: post?.title || "Untitled Post",
       slug: post?.slug || "#",
-      excerpt: post?.excerpt || "",
+      excerpt: post?.excerpt?.replace(/<[^>]*>?/gm, '').substring(0, 100) + "..." || "",
       image: post?.featuredImage?.node?.sourceUrl || "https://images.unsplash.com/photo-1677442136019-21780ecad995",
       categoryName: post?.categories?.nodes?.[0]?.name || "AI News",
-      categorySlug: post?.categories?.nodes?.[0]?.slug || "ai-news", // Memaksa nilai agar tidak undefined
+      categorySlug: post?.categories?.nodes?.[0]?.slug || "ai-news",
       date: "March 2026",
       author: "Dispan"
     }));
@@ -76,34 +77,92 @@ export default async function HomePage() {
   const tools = mapPosts(data?.toolsPosts?.nodes);
   const creativity = mapPosts(data?.creativityPosts?.nodes);
   const lifestyle = mapPosts(data?.lifestylePosts?.nodes);
-  const featured = business[0] || tools[0] || null;
+  
+  // Ambil artikel pertama Business untuk Hero, sisanya untuk Silo
+  const featured = business[0] || null;
+  const businessDisplay = business.slice(1); 
+
+  // Data untuk Sidebar (diambil dari semua kategori)
+  const trending = [...business, ...tools].slice(0, 5);
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
+      {/* Header otomatis menggunakan navigasi yang kita bahas */}
       <SiteHeader />
+      
       <main className="flex-1">
-        {/* Hanya tampilkan Hero jika data ada */}
-        {featured ? <HeroSection post={featured} /> : <div className="h-20" />}
+        {/* Hero Section */}
+        {featured ? (
+          <HeroSection post={featured} />
+        ) : (
+          <div className="h-40 flex items-center justify-center bg-slate-50 text-slate-400">
+            Post an article in WordPress to see the Hero section.
+          </div>
+        )}
         
         <div className="mx-auto max-w-7xl px-4 lg:px-8 mt-10">
-          <div className="flex flex-col lg:flex-row gap-8">
-            <div className="min-w-0 flex-1">
+          <div className="flex flex-col lg:flex-row gap-12">
+            
+            {/* Main Content Area */}
+            <div className="min-w-0 flex-1 space-y-16">
               
-              {/* Gunakan pengecekan length agar komponen tidak memproses array kosong */}
-              {business.length > 0 && <BusinessSilo posts={business} />}
+              {/* Silo 1: Business */}
+              <section>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold border-l-4 border-blue-600 pl-4">Business AI</h2>
+                  <a href="/category/ai-for-business" className="text-sm font-semibold text-blue-600 hover:underline">View All</a>
+                </div>
+                {businessDisplay.length > 0 ? (
+                  <BusinessSilo posts={businessDisplay} />
+                ) : (
+                  <p className="text-slate-400 italic">No business articles found.</p>
+                )}
+              </section>
+
               <AdSlot type="leaderboard" />
               
-              {tools.length > 0 && <ToolsSilo posts={tools} />}
-              {creativity.length > 0 && <CreativitySilo posts={creativity} />}
-              
+              {/* Silo 2: Tools */}
+              <section>
+                 <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold border-l-4 border-blue-600 pl-4">AI Tools Review</h2>
+                  <a href="/category/ai-tools-review-comparison" className="text-sm font-semibold text-blue-600 hover:underline">View All</a>
+                </div>
+                <ToolsSilo posts={tools} />
+              </section>
+
+              {/* Silo 3: Creativity */}
+              <section>
+                 <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold border-l-4 border-blue-600 pl-4">Ideas & Creativity</h2>
+                  <a href="/category/ai-for-ideas-creativity" className="text-sm font-semibold text-blue-600 hover:underline">View All</a>
+                </div>
+                <CreativitySilo posts={creativity} />
+              </section>
+
               <AdSlot type="native-in-feed" />
               
-              {lifestyle.length > 0 && <LifestyleSilo posts={lifestyle} />}
+              {/* Silo 4: Lifestyle */}
+              <section>
+                 <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold border-l-4 border-blue-600 pl-4">Everyday AI</h2>
+                  <a href="/category/everyday-ai-lifestyle" className="text-sm font-semibold text-blue-600 hover:underline">View All</a>
+                </div>
+                <LifestyleSilo posts={lifestyle} />
+              </section>
             </div>
-            <Sidebar topics={[]} />
+
+            {/* Sidebar with dynamic trending topics */}
+            <aside className="lg:w-80">
+               <Sidebar topics={trending} />
+               <div className="sticky top-24 mt-8">
+                 <AdSlot type="rectangle" />
+               </div>
+            </aside>
+            
           </div>
         </div>
       </main>
+
       <SiteFooter />
     </div>
   )
