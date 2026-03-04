@@ -4,51 +4,75 @@ import { HeroSection } from "@/components/hero-section"
 import { BusinessSilo, ToolsSilo, CreativitySilo, LifestyleSilo } from "@/components/category-silos"
 import { AdSlot } from "@/components/ad-slot"
 import { Sidebar } from "@/components/sidebar"
-import {
-  featuredPost,
-  businessPosts,
-  toolsPosts,
-  creativityPosts,
-  lifestylePosts,
-  trendingTopics,
-} from "@/lib/dummy-data"
 
-export default function HomePage() {
+// FUNGSI FETCH DATA DARI WORDPRESS
+async function getWordPressData() {
+  const query = `
+    query GetHomepageData {
+      businessPosts: posts(where: {categoryName: "AI for Business"}, first: 4) {
+        nodes { title, slug, featuredImage { node { sourceUrl } } }
+      }
+      toolsPosts: posts(where: {categoryName: "AI Tools Review & Comparison"}, first: 3) {
+        nodes { title, slug, featuredImage { node { sourceUrl } } }
+      }
+      creativityPosts: posts(where: {categoryName: "AI for Ideas & Creativity"}, first: 4) {
+        nodes { title, slug, featuredImage { node { sourceUrl } } }
+      }
+      lifestylePosts: posts(where: {categoryName: "Everyday AI / Lifestyle"}, first: 4) {
+        nodes { title, slug, featuredImage { node { sourceUrl } } }
+      }
+    }
+  `;
+
+  const res = await fetch(process.env.WORDPRESS_API_URL || '', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+    next: { revalidate: 60 }, 
+  });
+
+  const json = await res.json();
+  return json.data;
+}
+
+export default async function HomePage() {
+  const data = await getWordPressData();
+
+  // Mapping data agar cocok dengan komponen kamu
+  const featuredPost = data?.businessPosts?.nodes[0];
+  const businessPosts = data?.businessPosts?.nodes || [];
+  const toolsPosts = data?.toolsPosts?.nodes || [];
+  const creativityPosts = data?.creativityPosts?.nodes || [];
+  const lifestylePosts = data?.lifestylePosts?.nodes || [];
+
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
-      {/* EverydayOnAI Homepage */}
       <SiteHeader />
 
       <main className="flex-1">
-        {/* Hero */}
+        {/* Hero mengambil artikel terbaru */}
         <HeroSection post={featuredPost} />
 
-        {/* Content + Sidebar Layout */}
         <div className="mx-auto max-w-7xl px-4 lg:px-8">
-          <div className="flex gap-8">
-            {/* Main Content */}
+          <div className="flex flex-col lg:flex-row gap-8">
             <div className="min-w-0 flex-1">
-              {/* Silo 1: Business AI */}
+              
+              {/* Menggunakan data asli dari WordPress */}
               <BusinessSilo posts={businessPosts} />
-
-              {/* Ad Slot 1: Leaderboard Banner */}
+              
               <AdSlot type="leaderboard" />
 
-              {/* Silo 2: AI Tools Review */}
               <ToolsSilo posts={toolsPosts} />
 
-              {/* Silo 3: Ideas & Creativity */}
               <CreativitySilo posts={creativityPosts} />
 
-              {/* Ad Slot 2: Native In-Feed */}
               <AdSlot type="native-in-feed" />
 
-              {/* Silo 4: Everyday AI / Lifestyle */}
               <LifestyleSilo posts={lifestylePosts} />
             </div>
 
-            {/* Sidebar */}
-            <Sidebar topics={trendingTopics} />
+            {/* Sidebar (bisa diisi trending topics manual atau dinamis nanti) */}
+            <Sidebar topics={[]} />
           </div>
         </div>
       </main>
