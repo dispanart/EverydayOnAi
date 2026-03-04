@@ -1,0 +1,2 @@
+# EverydayOnAi
+Headless Wordpress
